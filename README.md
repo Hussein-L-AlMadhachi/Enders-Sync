@@ -1,4 +1,4 @@
-# Glasswire
+# Enders-Sync
 
 A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js that makes calling server functions from the client feel like calling local functions.
 
@@ -14,7 +14,7 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
 
 ## Table of Content
 
-- [Glasswire](#glasswire)
+- [Enders-Sync](#Enders-Sync)
   - [Features](#features)
   - [Table of Content](#table-of-content)
   - [Installation](#installation)
