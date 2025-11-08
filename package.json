@@ -1,6 +1,6 @@
 {
     "name": "enders-sync",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "A Fullstack RPC library connecting your backend to your frontend seemlessly over a REST API ",
     "license": "MIT",
     "author": "Hussein Layth Al-Madhachi",

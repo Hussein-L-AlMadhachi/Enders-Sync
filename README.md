@@ -54,13 +54,13 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
 on the server:
 
 ```bash
-npm install glasswire
+npm install enders-sync
 ```
 
 on the client:
 
 ```bash
-npm install glasswire-client
+npm install enders-sync-client
 ```
 
 ## Quick Start
