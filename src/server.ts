@@ -45,33 +45,33 @@ export class RPC {
         const params = requestData.params;
 
         if (!methodName) {
-        return {
-            success: false,
-            error: 'bad request: the request need to have "method" and "params"'
-        };
+            return {
+                success: false,
+                error: 'bad request: the request need to have "method" and "params"'
+            };
         }
 
         if (typeof methodName !== 'string') {
-        return {
-            success: false,
-            error: "bad request: RPC function doesn't exist"
-        };
+            return {
+                success: false,
+                error: "bad request: RPC function doesn't exist"
+            };
         }
 
         if (params && !Array.isArray(params)) {
-        return {
-            success: false,
-            error: "bad request: RPC params should be a list"
-        };
+            return {
+                success: false,
+                error: "bad request: RPC params should be a list"
+            };
         }
 
         // RPC call
         const functionHandler = this.functions.get(methodName);
         if (!functionHandler) {
-        return {
-            success: false,
-            error: `RPC function '${methodName}' not found`
-        };
+            return {
+                success: false,
+                error: `RPC function '${methodName}' not found`
+            };
         }
 
         const validation = this.validator( cookie );

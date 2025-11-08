@@ -1,6 +1,6 @@
 {
-    "name": "glasswire",
-    "version": "0.0.1",
+    "name": "enders-sync",
+    "version": "0.1.0",
     "description": "A Fullstack RPC library connecting your backend to your frontend seemlessly over a REST API ",
     "license": "MIT",
     "author": "Hussein Layth Al-Madhachi",
@@ -10,8 +10,8 @@
     "types": "./dist/src/server.d.ts",
     "exports": {
         ".": {
-        "import": "./dist/src/server.js",
-        "types": "./dist/src/server.d.ts"
+            "import": "./dist/src/server.js",
+            "types": "./dist/src/server.d.ts"
         }
     },
     "keywords": [
@@ -27,7 +27,7 @@
         "cookie-auth",
         "json-rpc",
         "lightweight",
-        "glasswire"
+        "enders-sync"
     ],
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
@@ -37,6 +37,7 @@
     },
     "devDependencies": {
         "@types/express": "^5.0.5",
-        "@types/node": "^24.10.0"
+        "@types/node": "^24.10.0",
+        "typescript": "^5.9.3"
     }
 }

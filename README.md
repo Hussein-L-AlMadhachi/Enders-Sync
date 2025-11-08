@@ -14,7 +14,7 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
 
 ## Table of Content
 
-- [Enders-Sync](#Enders-Sync)
+- [Enders-Sync](#enders-sync)
   - [Features](#features)
   - [Table of Content](#table-of-content)
   - [Installation](#installation)
