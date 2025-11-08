@@ -73,7 +73,7 @@ npm install enders-sync-client
 
 ```javascript
 import express from 'express';
-import { useExpressRPC } from 'glasswire';
+import { useExpressRPC } from 'enders-sync';
 
 const app = express();
 app.use(express.json());
@@ -105,7 +105,7 @@ app.listen(3000, () => {
 **api.js**:
 
 ```javascript
-import { RPC } from 'glasswire-client';
+import { RPC } from 'enders-sync-client';
 
 // Create RPC client instance
 export const api = new RPC('/api/public');
@@ -158,7 +158,7 @@ function UserProfile({ userId }) {
 ```javascript
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { useExpressRPC } from 'glasswire';
+import { useExpressRPC } from 'enders-sync';
 
 const app = express();
 
@@ -228,7 +228,7 @@ const adminRPC = useExpressRPC(app, '/api/admin', validateAdminToken);
 **Client:**
 
 ```javascript
-import { RPC } from "glasswire-client"
+import { RPC } from "enders-sync-client"
 
 export const publicAPI = new RPC('/api/public');
 export const userAPI = new RPC('/api/user');
@@ -393,7 +393,7 @@ api.riskyOperation(data)
 [Go Back](#table-of-content)
 
 ```typescript
-import { type AuthMetadata } from 'glasswire';
+import { type AuthMetadata } from 'enders-sync';
 
 interface User{
     id:
@@ -422,7 +422,7 @@ publicRPC.add(getUser);
 [Go Back](#table-of-content)
 
 ```typescript
-import { RPC } from 'glasswire-client';
+import { RPC } from 'enders-sync-client';
 
 export interface PublicAPI {
   getUser(userId: number): Promise<{ id: number, name: string , email: string }>;
@@ -455,7 +455,7 @@ const user: User = await public_api.getUser(123);
 
 ```javascript
 import express from 'express';
-import { useExpressRPC } from 'glasswire/server';
+import { useExpressRPC } from 'enders-sync';
 
 const app = express();
 app.use(express.json());
@@ -495,7 +495,7 @@ app.listen(3000);
 **api.js**:
 
 ```javascript
-import { RPC } from 'glasswire-client';
+import { RPC } from 'enders-sync-client';
 
 export const api = new RPC('/api/public');
 ```
