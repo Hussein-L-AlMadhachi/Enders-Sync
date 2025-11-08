@@ -343,8 +343,6 @@ Manually call an RPC function (usually not needed - use auto-generated methods i
 
 [Go Back](#table-of-content)
 
-[Go Back](#table-of-content)
-
 When you create an RPC endpoint at `/api/public`, two routes are automatically created:
 
 - `GET /api/public/discover` - Returns list of available functions
