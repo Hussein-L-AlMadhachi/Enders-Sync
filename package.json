@@ -4,7 +4,10 @@
     "description": "A Fullstack RPC library connecting your backend to your frontend seemlessly over a REST API ",
     "license": "MIT",
     "author": "Hussein Layth Al-Madhachi",
-    "repository":"https://github.com/Hussein-L-AlMadhachi/Enders-Sync",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/Hussein-L-AlMadhachi/Enders-Sync.git"
+    },
     "type": "module",
     "main": "./dist/src/server.js",
     "module": "./dist/src/server.js",
