@@ -31,7 +31,7 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
     - [Multiple RPC Endpoints](#multiple-rpc-endpoints)
   - [API Reference](#api-reference)
     - [Server API](#server-api)
-      - [`useExpressRPC(app, path, validator, cookieKey?)`](#useexpressrpcapp-path-validator-cookiekey)
+      - [`createRPC(app, path, validator)`](#createrpcapp-path-validator)
       - [`RPC.add(functionHandler, optionalName?)`](#rpcaddfunctionhandler-optionalname)
       - [`RPC.dump()`](#rpcdump)
     - [Client API](#client-api)
@@ -76,13 +76,13 @@ npm install enders-sync-client
 
 ```javascript
 import express from 'express';
-import { useExpressRPC } from 'enders-sync';
+import { createRPC } from 'enders-sync';
 
 const app = express();
 app.use(express.json());
 
 // Create a public RPC endpoint (no authentication required)
-const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
+const publicRPC = createRPC(app, '/api/public', (req) => ({
   success: true,
   metadata: { auth: { role: 'public' } }
 }));
@@ -159,7 +159,7 @@ The validator function receives the full Express `Request` object, allowing you 
 ```javascript
 import express from 'express';
 import jwt from 'jsonwebtoken';
-import { useExpressRPC } from 'enders-sync';
+import { createRPC } from 'enders-sync';
 
 const app = express();
 app.use(express.json());
@@ -190,11 +190,10 @@ function authUser(req) {
   }
 }
 
-const authenticatedRPC = useExpressRPC(
+const authenticatedRPC = createRPC(
   app, 
   '/api/user',
-  authUser,
-  'auth_token' // custom cookie key (default: 'token')
+  authUser
 );
 
 // Access auth metadata in your functions
@@ -235,7 +234,7 @@ let's taking adding a rate limiter as an example
 import rateLimit from 'express-rate-limit'; // import rate limiting library here here
 
 import express from 'express';
-import { useExpressRPC } from 'enders-sync';
+import { createRPC } from 'enders-sync';
 
 
 // setting up rate limiter
@@ -252,7 +251,7 @@ app.use(express.json());
 app.use('/api/public', limiter);
 
 // Create a public RPC endpoint (no authentication required)
-const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
+const publicRPC = createRPC(app, '/api/public', (req) => ({
   success: true,
   metadata: { auth: { role: 'public' } }
 }));
@@ -276,16 +275,16 @@ const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
 
 ```javascript
 // Public API (no auth)
-const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
+const publicRPC = createRPC(app, '/api/public', (req) => ({
   success: true,
   metadata: { auth: {} }
 }));
 
 // User API (requires authentication)
-const userRPC = useExpressRPC(app, '/api/user', validateUserToken);
+const userRPC = createRPC(app, '/api/user', validateUserToken);
 
 // Admin API (requires admin role)
-const adminRPC = useExpressRPC(app, '/api/admin', validateAdminToken);
+const adminRPC = createRPC(app, '/api/admin', validateAdminToken);
 ```
 
 **Client:**
@@ -313,7 +312,7 @@ await Promise.all([
 
 [Go Back](#table-of-content)
 
-#### `useExpressRPC(app, path, validator, cookieKey?)`
+#### `createRPC(app, path, validator)`
 
 [Go Back](#table-of-content)
 
@@ -324,7 +323,6 @@ Creates an RPC endpoint on your Express app.
 - `app` (Express): Your Express application instance
 - `path` (string): Base path for the RPC endpoint (e.g., `/api/public`)
 - `validator` (Validator): Authentication validator function
-- `cookieKey` (string, optional): Cookie key to extract auth token from (default: `'token'`)
 
 **Returns:** `RPC` instance
 
@@ -561,12 +559,12 @@ const user: User = await public_api.getUser(123);
 
 ```javascript
 import express from 'express';
-import { useExpressRPC } from 'enders-sync';
+import { createRPC } from 'enders-sync';
 
 const app = express();
 app.use(express.json());
 
-const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
+const publicRPC = createRPC(app, '/api/public', (req) => ({
   success: true,
   metadata: { auth: {} }
 }));

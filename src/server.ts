@@ -162,7 +162,7 @@ export function cookieParser(req: Request, _res: Response, next: NextFunction) {
 
 
 
-export function useExpressRPC( app:Express , path:string , validator:Validator , cookie_key:string="token" ) : RPC {
+export function createRPC( app:Express , path:string , validator:Validator ) : RPC {
     const rpc = new RPC();
     rpc.validator = validator;
 
