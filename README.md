@@ -1,5 +1,7 @@
 # Enders-Sync
 
+**Enders** (Back**enders** + Front**enders**) **Sync**
+
 A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js that makes calling server functions from the client feel like calling local functions.
 
 ## Features
@@ -9,7 +11,7 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
 - 🔒 **Built-in Authentication**: Cookie-based auth with customizable validators
 - 📡 **Auto-Discovery**: Client automatically discovers available server functions
 - 🎯 **Type-Safe**: Full TypeScript support
-- 🪶 **Lightweight**: No dependencies except Express
+- 🪶 **Lightweight**: Minimal dependencies
 - 🔄 **Promise-Based**: Works seamlessly with async/await
 
 ## Table of Content
@@ -23,13 +25,14 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
     - [Client Setup](#client-setup)
     - [React Example](#react-example)
   - [Authentication](#authentication)
-    - [Custom Validator](#custom-validator)
+  - [Accessing Request and Response](#accessing-request-and-response)
+  - [Using Express Middleware](#using-express-middleware)
   - [Security Considerations](#security-considerations)
     - [Multiple RPC Endpoints](#multiple-rpc-endpoints)
   - [API Reference](#api-reference)
     - [Server API](#server-api)
       - [`useExpressRPC(app, path, validator, cookieKey?)`](#useexpressrpcapp-path-validator-cookiekey)
-      - [`RPC.add(functionHandler)`](#rpcaddfunctionhandler)
+      - [`RPC.add(functionHandler, optionalName?)`](#rpcaddfunctionhandler-optionalname)
       - [`RPC.dump()`](#rpcdump)
     - [Client API](#client-api)
       - [`new RPC(url)`](#new-rpcurl)
@@ -79,17 +82,17 @@ const app = express();
 app.use(express.json());
 
 // Create a public RPC endpoint (no authentication required)
-const publicRPC = useExpressRPC(app, '/api/public', () => ({
+const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
   success: true,
-  metadata: { role: 'public' }
+  metadata: { auth: { role: 'public' } }
 }));
 
 // Register your functions
-publicRPC.add(function getUser(auth_metadata, userId) {
+publicRPC.add(function getUser(metadata, userId) {
   return { id: userId, name: 'John Doe', email: 'john@example.com' };
 });
 
-publicRPC.add(function calculateSum(auth_metadata, a, b) {
+publicRPC.add(function calculateSum(metadata, a, b) {
   return a + b;
 });
 
@@ -151,9 +154,7 @@ function UserProfile({ userId }) {
 
 [Go Back](#table-of-content)
 
-### Custom Validator
-
-[Go Back](#table-of-content)
+The validator function receives the full Express `Request` object, allowing you to access cookies, headers, query parameters, and more for authentication and validation.
 
 ```javascript
 import express from 'express';
@@ -161,41 +162,101 @@ import jwt from 'jsonwebtoken';
 import { useExpressRPC } from 'enders-sync';
 
 const app = express();
+app.use(express.json());
 
-
-// create a validator for your Auth and access control
-function authUser(cookie) {
-    try {
-      const token = cookie; // or parse from cookie string
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      
-      return {
-        success: true,
-        metadata: { 
+// Create a validator for your Auth and access control
+function authUser(req) {
+  try {
+    // Access cookies (automatically parsed by enders-sync)
+    const token = req.cookies.auth_token;
+    
+    if (!token) {
+      return { success: false };
+    }
+    
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    
+    return {
+      success: true,
+      metadata: { 
+        auth: {
           userId: decoded.userId,
           role: decoded.role 
         }
-      };
-    } catch (error) {
-      return { success: false };
-    }
+      }
+    };
+  } catch (error) {
+    return { success: false };
+  }
 }
 
-
-const authenticatedRPC = useExpressRPC (
-    app, 
-    '/api/user',
-    authUser,
+const authenticatedRPC = useExpressRPC(
+  app, 
+  '/api/user',
+  authUser,
   'auth_token' // custom cookie key (default: 'token')
 );
 
-
 // Access auth metadata in your functions
-authenticatedRPC.add( function getMyProfile(auth_metadata) {
-  const userId = auth_metadata.userId;
+authenticatedRPC.add(function getMyProfile(metadata) {
+  const userId = metadata.auth.userId;
   // Fetch user profile using authenticated userId
   return { id: userId, name: 'Current User' };
 });
+```
+
+## Accessing Request and Response
+
+[Go Back](#table-of-content)
+
+The metadata object passed to your RPC handlers includes the Express `req` and `res` objects, giving you full control when needed:
+
+```javascript
+publicRPC.add(function specialFunction(metadata, data) {
+  // Access the Express request object
+  const userAgent = metadata.req.headers['user-agent'];
+  const clientIp = metadata.req.ip;
+  
+  // Access auth data
+  const userId = metadata.auth.userId;
+  
+  // You can even manipulate the response
+  metadata.res.setHeader('X-Custom-Header', 'value');
+  
+  return { processed: data };
+});
+```
+
+## Using Express Middleware
+
+let's taking adding a rate limiter as an example
+
+```javascript
+import rateLimit from 'express-rate-limit'; // import rate limiting library here here
+
+import express from 'express';
+import { useExpressRPC } from 'enders-sync';
+
+
+// setting up rate limiter
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // limit each IP to 10 requests per windowMs
+  message: { error: 'Too many requests, slow down!' }
+});
+
+const app = express();
+app.use(express.json());
+
+// using middleware for the whole RPC path
+app.use('/api/public', limiter);
+
+// Create a public RPC endpoint (no authentication required)
+const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
+  success: true,
+  metadata: { auth: { role: 'public' } }
+}));
+
 ```
 
 ## Security Considerations
@@ -206,6 +267,8 @@ authenticatedRPC.add( function getMyProfile(auth_metadata) {
 - Use different validators for different permission levels
 - Consider rate limiting for public endpoints
 - The auth metadata is trusted - ensure your validator is secure
+- Validator receives full Express Request object - be cautious about what you expose
+- Cookie parsing is handled automatically by the library
 
 ### Multiple RPC Endpoints
 
@@ -213,9 +276,9 @@ authenticatedRPC.add( function getMyProfile(auth_metadata) {
 
 ```javascript
 // Public API (no auth)
-const publicRPC = useExpressRPC(app, '/api/public', () => ({
+const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
   success: true,
-  metadata: {}
+  metadata: { auth: {} }
 }));
 
 // User API (requires authentication)
@@ -260,7 +323,7 @@ Creates an RPC endpoint on your Express app.
 
 - `app` (Express): Your Express application instance
 - `path` (string): Base path for the RPC endpoint (e.g., `/api/public`)
-- `validator` (Function): Authentication validator function
+- `validator` (Validator): Authentication validator function
 - `cookieKey` (string, optional): Cookie key to extract auth token from (default: `'token'`)
 
 **Returns:** `RPC` instance
@@ -268,29 +331,45 @@ Creates an RPC endpoint on your Express app.
 **Validator Function:**
 
 ```typescript
-type Validator = (cookie: string) => {
+type Validator = (req: Request) => {
   success: boolean;
-  metadata?: Record<string, string | number>;
+  metadata?: {
+    auth: Record<string, string | number>;
+  };
 }
 ```
 
-#### `RPC.add(functionHandler)`
+The validator receives the full Express `Request` object with cookies already parsed. Return `success: true` with optional metadata to allow the request, or `success: false` to reject it.
+
+#### `RPC.add(functionHandler, optionalName?)`
 
 [Go Back](#table-of-content)
 
 Registers a function to be callable via RPC.
 
+**Parameters:**
+
+- `functionHandler` (Function): The function to register
+- `optionalName` (string, optional): Custom name for the function (defaults to function.name)
+
 **Requirements:**
 
-- Function must be a named function (not arrow function)
-- First parameter must be `auth_metadata`
+- Function must be a named function (not arrow function) unless you provide `optionalName`
+- First parameter must be `metadata` (contains `auth`, `req`, and `res`)
 - Remaining parameters are the RPC call arguments
 
 ```javascript
-rpc.add(function myFunction(auth_metadata, param1, param2) {
+// Using function name
+rpc.add(function myFunction(metadata, param1, param2) {
   // Your logic here
   return result;
 });
+
+// Using custom name
+const handler = function(metadata, param1) {
+  return result;
+};
+rpc.add(handler, 'customName');
 ```
 
 #### `RPC.dump()`
@@ -357,7 +436,7 @@ When you create an RPC endpoint at `/api/public`, two routes are automatically c
 [Go Back](#table-of-content)
 
 ```javascript
-publicRPC.add(function riskyOperation(auth_metadata, data) {
+publicRPC.add(function riskyOperation(metadata, data) {
   if (!data) {
     throw new Error('Data is required');
   }
@@ -393,27 +472,46 @@ api.riskyOperation(data)
 [Go Back](#table-of-content)
 
 ```typescript
-import { type AuthMetadata } from 'enders-sync';
+import { type Metadata, type RPCHandler } from 'enders-sync';
+import { type Request } from 'express';
 
-interface User{
-    id:
+interface User {
+  id: number;
+  name: string;
+  email: string;
 }
 
-function getUser(
-  auth_metadata: AuthMetadata
+const getUser: RPCHandler = function(
+  metadata: Metadata,
+  userId: number
 ): User {
   return {
-    id: auth_metadata.id! , // members are validated by the validator
+    id: userId,
     name: 'John Doe',
     email: 'john@example.com'
   };
 };
 
+// Custom validator with types
+const myValidator = (req: Request): ValidatorReturn => {
+  const token = req.cookies.token;
+  
+  if (!token) {
+    return { success: false };
+  }
+  
+  return {
+    success: true,
+    metadata: {
+      auth: {
+        userId: 123,
+        role: 'admin'
+      }
+    }
+  };
+};
 
-// ...
-
-
-// then you register the backend function
+// Register the function
 publicRPC.add(getUser);
 ```
 
@@ -424,8 +522,14 @@ publicRPC.add(getUser);
 ```typescript
 import { RPC } from 'enders-sync-client';
 
+interface User {
+  id: number;
+  name: string;
+  email: string;
+}
+
 export interface PublicAPI {
-  getUser(userId: number): Promise<{ id: number, name: string , email: string }>;
+  getUser(userId: number): Promise<User>;
   calculateSum(a: number, b: number): Promise<number>;
 }
 
@@ -442,10 +546,12 @@ const user: User = await public_api.getUser(123);
 
 1. **Initialize once**: Call `api.load()` once when your app starts, not on every component mount
 2. **Error handling**: Always handle errors from RPC calls
-3. **Named functions**: Use named functions (not arrow functions) for RPC handlers
+3. **Named functions**: Use named functions (not arrow functions) for RPC handlers, or provide custom names
 4. **Validation**: Validate input parameters in your RPC functions
 5. **Authentication**: Use different RPC endpoints for different permission levels
 6. **Async operations**: RPC handlers can be async functions
+7. **Metadata structure**: Always structure your validator metadata with an `auth` property
+8. **Cookie parsing**: Cookies are automatically parsed - access them via `req.cookies`
 
 ## Example: Complete App
 
@@ -460,9 +566,9 @@ import { useExpressRPC } from 'enders-sync';
 const app = express();
 app.use(express.json());
 
-const publicRPC = useExpressRPC(app, '/api/public', () => ({
+const publicRPC = useExpressRPC(app, '/api/public', (req) => ({
   success: true,
-  metadata: {}
+  metadata: { auth: {} }
 }));
 
 // Database mock
@@ -471,17 +577,17 @@ const users = [
   { id: 2, name: 'Bob', email: 'bob@example.com' }
 ];
 
-publicRPC.add(function getUsers(auth_metadata) {
+publicRPC.add(function getUsers(metadata) {
   return users;
 });
 
-publicRPC.add(function getUserById(auth_metadata, id) {
+publicRPC.add(function getUserById(metadata, id) {
   const user = users.find(u => u.id === id);
   if (!user) throw new Error('User not found');
   return user;
 });
 
-publicRPC.add(async function searchUsers(auth_metadata, query) {
+publicRPC.add(async function searchUsers(metadata, query) {
   // Simulate async database query
   await new Promise(resolve => setTimeout(resolve, 100));
   return users.filter(u => 
@@ -489,7 +595,17 @@ publicRPC.add(async function searchUsers(auth_metadata, query) {
   );
 });
 
-app.listen(3000);
+// Example with request/response access
+publicRPC.add(function getClientInfo(metadata) {
+  return {
+    ip: metadata.req.ip,
+    userAgent: metadata.req.headers['user-agent']
+  };
+});
+
+app.listen(3000, () => {
+  console.log('Server running on http://localhost:3000');
+});
 ```
 
 **api.js**:
@@ -517,6 +633,9 @@ console.log(alice);
 
 const results = await api.searchUsers('bob');
 console.log(results);
+
+const clientInfo = await api.getClientInfo();
+console.log(clientInfo);
 ```
 
 ## License

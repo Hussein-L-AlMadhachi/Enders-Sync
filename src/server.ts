@@ -1,5 +1,6 @@
 import { type Express , type Request , type Response, type NextFunction } from 'express';
 
+import * as cookie from 'cookie'; //already used by express so why not
 
 
 export type RPCRequest = {
@@ -15,32 +16,45 @@ export type RPCResponse = {
 };
 
 
-export type AuthMetadata = Record<string, string | number>;
+export interface Metadata {
+    auth: Record<string, string | number>;
+    req?: Request,
+    res?: Response,
+}
+
 
 
 export type RPCHandler = (
-  auth_metadata: AuthMetadata,
+  auth_metadata: Metadata,
   ...params: any[]
 ) => any | Promise<any>;
 
 
 export interface ValidatorReturn {
     success: boolean;
-    metadata?: AuthMetadata;
+    metadata?: Metadata;
 }
-export type Validator = (cookie:string)=>ValidatorReturn;
+
+export type Validator = ( req:Request )=>ValidatorReturn;
+
+
+
 
 
 export class RPC {
+
+
     private functions: Map<string, RPCHandler>;
 
-    public validator: Validator = ()=>{  return { success:true , metadata:{} };  };
+    public validator: Validator = ()=>{  return { success:true };  };
 
     constructor() {
         this.functions = new Map();
     }
 
-    public handler(requestData: RPCRequest , cookie:string): RPCResponse {
+
+    public async handler(requestData: RPCRequest , req:Request , res:Response ): Promise<RPCResponse> {
+
         const methodName = requestData.method;
         const params = requestData.params;
 
@@ -65,7 +79,7 @@ export class RPC {
             };
         }
 
-        // RPC call
+        // obtaining RPC from lookup
         const functionHandler = this.functions.get(methodName);
         if (!functionHandler) {
             return {
@@ -74,16 +88,23 @@ export class RPC {
             };
         }
 
-        const validation = this.validator( cookie );
+        // running auth validator
+        const validation = this.validator( req );
         if ( validation.success === false ){
             return {
                 success: false,
                 error: "Authentication failed"
             };
         }
-        
+
+        // passing requests to metadata
+        const metadata = validation.metadata || { auth: {} };
+        metadata.req = req;
+        metadata.res = res;
+
+        // RPC call
         try {
-            const result = functionHandler( validation.metadata! , ...(params || []));
+            const result = await functionHandler( metadata , ...(params || []));
 
             return {
                 success: true,
@@ -100,36 +121,44 @@ export class RPC {
         
     }
 
+
     public dump(): string[] {
         return Array.from(this.functions.keys());
     }
 
-    public add(functionHandler: RPCHandler): void {
-        const funcName = functionHandler.name;
-        if (!funcName) {
+
+    public add(functionHandler: RPCHandler , optional_name:string|null= null): void {
+        let func_name;
+
+        if ( optional_name ){
+            func_name = optional_name;
+        } else {
+            func_name = functionHandler.name;
+        }
+
+        if (!func_name) {
             throw new Error('Function must have a name');
         }
-        this.functions.set(funcName, functionHandler);
+        this.functions.set(func_name, functionHandler);
     }
+
+
 }
+
 
 
 
 export function cookieParser(req: Request, _res: Response, next: NextFunction) {
-    const header = req.headers.cookie;
-    req.cookies = header
-        ? Object.fromEntries(
-            header.split(";").map( (v:string) => {
-                const [k, ...rest] = v.split("=");
-                return [k!.trim(), decodeURIComponent(rest.join("="))];
-            })
-        )
-        : {};
+    const raw_cookies = req.headers.cookie;
+    if ( !raw_cookies ) {
+        next()
+        return;
+    }
+
+    req.cookies = cookie.parse( raw_cookies ) || {};
 
     next();
 }
-
-
 
 
 
@@ -137,9 +166,9 @@ export function useExpressRPC( app:Express , path:string , validator:Validator ,
     const rpc = new RPC();
     rpc.validator = validator;
 
-    if ( !app.get("cookie-parser") ){
+    if ( !app.get("enders-sync-dependencies-loaded") ){
         app.use( cookieParser );
-        app.set("cookie-parser" , true);
+        app.set("enders-sync-dependencies-loaded" , true);
     }
 
     app.get(`${path}/discover`, (req: Request, res: Response) => {
@@ -153,7 +182,7 @@ export function useExpressRPC( app:Express , path:string , validator:Validator ,
 
     });
 
-    app.post(`${path}/call`, (req: Request, res: Response) => {
+    app.post(`${path}/call`, async(req: Request, res: Response) => {
 
         try {
             const requestData: RPCRequest = req.body;
@@ -161,10 +190,8 @@ export function useExpressRPC( app:Express , path:string , validator:Validator ,
             if (!requestData || Object.keys(requestData).length === 0) {
                 return res.status(400).json({ error: "Invalid JSON" });
             }
-            
-            const authToken = req.cookies[cookie_key] || '';
 
-            const result: RPCResponse = rpc.handler(requestData , authToken);
+            const result: RPCResponse = await rpc.handler(requestData , req , res );
             res.json(result);
 
         } catch (error) {
