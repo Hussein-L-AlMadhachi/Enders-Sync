@@ -9,7 +9,6 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
 - 🏆 **Fullstack**: both server-side and client-side libraries
 - 🚀 **Zero Boilerplate**: Call server functions directly without writing fetch code
 - 🔒 **Built-in Authentication**: Cookie-based auth with customizable validators
-- 📡 **Auto-Discovery**: Client automatically discovers available server functions
 - 🎯 **Type-Safe**: Full TypeScript support
 - 🪶 **Lightweight**: Minimal dependencies
 - 🔄 **Promise-Based**: Works seamlessly with async/await
@@ -24,6 +23,7 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
     - [Server Setup](#server-setup)
     - [Client Setup](#client-setup)
     - [React Example](#react-example)
+    - [Next JS Example](#next-js-example)
   - [Authentication](#authentication)
   - [Accessing Request and Response](#accessing-request-and-response)
   - [Using Express Middleware](#using-express-middleware)
@@ -35,8 +35,8 @@ A zero-boilerplate RPC (Remote Procedure Call) Fullstack library for Express.js 
       - [`RPC.add(functionHandler, optionalName?)`](#rpcaddfunctionhandler-optionalname)
       - [`RPC.dump()`](#rpcdump)
     - [Client API](#client-api)
-      - [`new RPC(url)`](#new-rpcurl)
-      - [`await rpc.load()`](#await-rpcload)
+      - [`new RPC(url)`](#new-rpc-url)
+      - [`rpc.load( ...methods )`](#rpc-load-methods)
       - [`await rpc.call(name, params)`](#await-rpccallname-params)
   - [Endpoints](#endpoints)
   - [Error Handling](#error-handling)
@@ -114,7 +114,7 @@ import { RPC } from 'enders-sync-client';
 export const api = new RPC('/api/public');
 
 // Load available functions (call once on app initialization)
-await api.load();
+api.load('getUser', 'calculateSum');
 
 // Now call server functions as if they were local!
 const user = await api.getUser(123);
@@ -147,6 +147,26 @@ function UserProfile({ userId }) {
 
   if (loading) return <div>Loading...</div>;
   return <div>{user.name}</div>;
+}
+```
+
+### Next JS example
+
+[Go Back](#table-of-content)
+
+```jsx
+// app/users/[id]/page.js
+import { api } from './api';
+
+export default async function UserProfile({ params }) {
+  const user = await api.getUser(params.id);
+  
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      {/* More user data */}
+    </div>
+  );
 }
 ```
 
@@ -296,12 +316,11 @@ export const publicAPI = new RPC('/api/public');
 export const userAPI = new RPC('/api/user');
 export const adminAPI = new RPC('/api/admin');
 
-// Load all APIs
-await Promise.all([
-  publicAPI.load(),
-  userAPI.load(),
-  adminAPI.load()
-]);
+// define all RPC methods
+publicAPI.load('getUser', 'calculateSum');
+userAPI.load('getUserProfile');
+adminAPI.load('getAdminProfile');
+
 ```
 
 ## API Reference
@@ -395,15 +414,17 @@ Creates a new RPC client instance.
 
 - `url` (string): Base URL of the RPC endpoint (e.g., `/api/public`)
 
-#### `await rpc.load()`
+#### `rpc.load( ...methods )`
 
 [Go Back](#table-of-content)
 
-Discovers and loads all available RPC functions from the server. Must be called before using any remote functions.
+declares the specified RPC functions from the server. Must be called before using any remote functions.
 
-**Returns:** `Promise<void>`
+**Parameters:**
 
-#### `await rpc.call(name, params)`
+- `methods` (string[]): List of function names to load
+
+#### `rpc.call(name, params)`
 
 [Go Back](#table-of-content)
 
@@ -420,9 +441,8 @@ Manually call an RPC function (usually not needed - use auto-generated methods i
 
 [Go Back](#table-of-content)
 
-When you create an RPC endpoint at `/api/public`, two routes are automatically created:
+When you create an RPC endpoint at `/api/public`, one route is automatically created:
 
-- `GET /api/public/discover` - Returns list of available functions
 - `POST /api/public/call` - Executes RPC calls
 
 ## Error Handling
@@ -531,8 +551,8 @@ export interface PublicAPI {
   calculateSum(a: number, b: number): Promise<number>;
 }
 
-export const public_api = new RPC('/api/public') as PublicAPI;
-await public_api.load();
+export const public_api = new RPC('/api/public') as unknown as PublicAPI;
+public_api.load('getUser', 'calculateSum');
 
 // Now you get full type safety!
 const user: User = await public_api.getUser(123);
@@ -542,7 +562,7 @@ const user: User = await public_api.getUser(123);
 
 [Go Back](#table-of-content)
 
-1. **Initialize once**: Call `api.load()` once when your app starts, not on every component mount
+1. **Initialize once**: Call `api.load( ...methods )` to declare available RPC methods globally
 2. **Error handling**: Always handle errors from RPC calls
 3. **Named functions**: Use named functions (not arrow functions) for RPC handlers, or provide custom names
 4. **Validation**: Validate input parameters in your RPC functions
@@ -620,7 +640,7 @@ export const api = new RPC('/api/public');
 import { api } from './api.js';
 
 // Initialize
-await api.load();
+api.load('getUsers', 'getUserById', 'searchUsers', 'getClientInfo');
 
 // Use anywhere in your app
 const users = await api.getUsers();

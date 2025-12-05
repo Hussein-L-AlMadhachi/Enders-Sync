@@ -1,6 +1,6 @@
 {
     "name": "enders-sync",
-    "version": "0.1.4",
+    "version": "0.2.1",
     "description": "A Fullstack RPC library connecting your backend to your frontend seemlessly over a REST API ",
     "license": "MIT",
     "author": "Hussein Layth Al-Madhachi",
@@ -36,11 +36,9 @@
         "test": "echo \"Error: no test specified\" && exit 1"
     },
     "dependencies": {
-        "cookie": "^1.0.2",
         "express": "^5.1.0"
     },
     "devDependencies": {
-        "@types/cookie": "^0.6.0",
         "@types/express": "^5.0.5",
         "@types/node": "^24.10.0",
         "typescript": "^5.9.3"

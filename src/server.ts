@@ -1,11 +1,12 @@
-import { type Express , type Request , type Response, type NextFunction } from 'express';
+import { type Express, type Request, type Response, type NextFunction } from 'express';
 
-import * as cookie from 'cookie'; //already used by express so why not
-
+const api_version = 1
+const least_supported_client_version = "0.2.1"
 
 export type RPCRequest = {
     method: string;
     params: any[];
+    version: number;
 };
 
 
@@ -25,8 +26,8 @@ export interface Metadata {
 
 
 export type RPCHandler = (
-  auth_metadata: Metadata,
-  ...params: any[]
+    auth_metadata: Metadata,
+    ...params: any[]
 ) => any | Promise<any>;
 
 
@@ -35,7 +36,7 @@ export interface ValidatorReturn {
     metadata?: Metadata;
 }
 
-export type Validator = ( req:Request )=>ValidatorReturn;
+export type Validator = (req: Request) => ValidatorReturn;
 
 
 
@@ -46,14 +47,14 @@ export class RPC {
 
     private functions: Map<string, RPCHandler>;
 
-    public validator: Validator = ()=>{  return { success:true };  };
+    public validator: Validator = () => { return { success: true }; };
 
     constructor() {
         this.functions = new Map();
     }
 
 
-    public async handler(requestData: RPCRequest , req:Request , res:Response ): Promise<RPCResponse> {
+    public async handler(requestData: RPCRequest, req: Request, res: Response): Promise<RPCResponse> {
 
         const methodName = requestData.method;
         const params = requestData.params;
@@ -89,8 +90,8 @@ export class RPC {
         }
 
         // running auth validator
-        const validation = this.validator( req );
-        if ( validation.success === false ){
+        const validation = this.validator(req);
+        if (validation.success === false) {
             return {
                 success: false,
                 error: "Authentication failed"
@@ -104,7 +105,7 @@ export class RPC {
 
         // RPC call
         try {
-            const result = await functionHandler( metadata , ...(params || []));
+            const result = await functionHandler(metadata, ...(params || []));
 
             return {
                 success: true,
@@ -118,7 +119,7 @@ export class RPC {
                 error: error instanceof Error ? error.message : String(error)
             };
         }
-        
+
     }
 
 
@@ -127,10 +128,10 @@ export class RPC {
     }
 
 
-    public add(functionHandler: RPCHandler , optional_name:string|null= null): void {
+    public add(functionHandler: RPCHandler, optional_name: string | null = null): void {
         let func_name;
 
-        if ( optional_name ){
+        if (optional_name) {
             func_name = optional_name;
         } else {
             func_name = functionHandler.name;
@@ -147,51 +148,26 @@ export class RPC {
 
 
 
-
-export function cookieParser(req: Request, _res: Response, next: NextFunction) {
-    const raw_cookies = req.headers.cookie;
-    if ( !raw_cookies ) {
-        next()
-        return;
-    }
-
-    req.cookies = cookie.parse( raw_cookies ) || {};
-
-    next();
-}
-
-
-
-export function createRPC( app:Express , path:string , validator:Validator ) : RPC {
+export function createRPC(app: Express, path: string, validator: Validator): RPC {
     const rpc = new RPC();
     rpc.validator = validator;
 
-    if ( !app.get("enders-sync-dependencies-loaded") ){
-        app.use( cookieParser );
-        app.set("enders-sync-dependencies-loaded" , true);
-    }
-
-    app.get(`${path}/discover`, (req: Request, res: Response) => {
-
-        try {
-            const rpcList = rpc.dump();
-            res.json(rpcList);
-        } catch (error) {
-            res.status(500).json({ error: 'Internal server error' });
-        }
-
-    });
-
-    app.post(`${path}/call`, async(req: Request, res: Response) => {
+    app.post(`${path}/call`, async (req: Request, res: Response) => {
 
         try {
             const requestData: RPCRequest = req.body;
-            
+
             if (!requestData || Object.keys(requestData).length === 0) {
                 return res.status(400).json({ error: "Invalid JSON" });
             }
 
-            const result: RPCResponse = await rpc.handler(requestData , req , res );
+            if (requestData.version !== api_version) {
+                return res.status(400).json({
+                    error: `Invalid API version: make sure you are using the version of the client >= ${least_supported_client_version}`
+                });
+            }
+
+            const result: RPCResponse = await rpc.handler(requestData, req, res);
             res.json(result);
 
         } catch (error) {
