@@ -1,4 +1,5 @@
 import { type Express, type Request, type Response, type NextFunction } from 'express';
+import * as cookie from 'cookie';
 
 const api_version = 1
 const least_supported_client_version = "0.2.1"
@@ -148,9 +149,29 @@ export class RPC {
 
 
 
-export function createRPC(app: Express, path: string, validator: Validator): RPC {
+
+
+export function cookieParser(req: Request, _res: Response, next: NextFunction) {
+    const raw_cookies = req.headers.cookie;
+    if (!raw_cookies) {
+        next()
+        return;
+    }
+
+    req.cookies = cookie.parse(raw_cookies) || {};
+
+    next();
+}
+
+
+export function createRPC( app:Express , path:string , validator:Validator ) : RPC {
     const rpc = new RPC();
     rpc.validator = validator;
+
+    if ( !app.get("enders-sync-dependencies-loaded") ){
+        app.use( cookieParser );
+        app.set("enders-sync-dependencies-loaded" , true);
+    }
 
     app.post(`${path}/call`, async (req: Request, res: Response) => {
 
