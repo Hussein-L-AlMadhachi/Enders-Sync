@@ -15,6 +15,7 @@ export type RPCResponse = {
     success: boolean;
     data?: any;
     error?: string;
+    code:number;
 };
 
 
@@ -43,9 +44,33 @@ export type Validator = (req: Request) => ValidatorReturn;
 
 
 
+export class RPCError {
+
+    error_label: string;
+    error_params: Record<string, string> = {};
+    status_code: number;
+
+    constructor(status_code: number, error_label: string, params: Record<string, string> = {} ) {
+        this.error_label = error_label;
+        this.error_params = params;
+        this.status_code = status_code;
+    }
+
+}
+
+
+
+
+
+type RPCErrorHandler = (params: Record<string, string>) => string;
+
+
+
+
+
 export class RPC {
 
-
+    private error_handlers_registry: Map<string, RPCErrorHandler> = new Map();
     private functions: Map<string, RPCHandler>;
 
     public validator: Validator = () => { return { success: true }; };
@@ -54,6 +79,10 @@ export class RPC {
         this.functions = new Map();
     }
 
+    // users fire RPC errors and give them labels and params
+    public async handleError( label:string , error_handler:RPCErrorHandler ) {
+        this.error_handlers_registry.set(label, error_handler);
+    }
 
     public async handler(requestData: RPCRequest, req: Request, res: Response): Promise<RPCResponse> {
 
@@ -63,6 +92,7 @@ export class RPC {
         if (!methodName) {
             return {
                 success: false,
+                code: 400,
                 error: 'bad request: the request need to have "method" and "params"'
             };
         }
@@ -70,6 +100,7 @@ export class RPC {
         if (typeof methodName !== 'string') {
             return {
                 success: false,
+                code: 404,
                 error: "bad request: RPC function doesn't exist"
             };
         }
@@ -77,26 +108,29 @@ export class RPC {
         if (params && !Array.isArray(params)) {
             return {
                 success: false,
-                error: "bad request: RPC params should be a list"
+                error: "bad request: RPC params should be a list",
+                code: 400
             };
         }
 
-        // obtaining RPC from lookup
+        // obtaining RPC method from lookup
         const functionHandler = this.functions.get(methodName);
         if (!functionHandler) {
             return {
                 success: false,
-                error: `RPC function '${methodName}' not found`
+                error: `RPC function '${methodName}' not found`,
+                code: 400
             };
         }
 
-        // running auth validator
+        // running auth validator that is specified by the user
         const validation = this.validator(req);
         if (validation.success === false) {
             return {
                 success: false,
-                error: "Authentication failed"
-            };
+                error: "authorization failed",
+                code: 403
+           };
         }
 
         // passing requests to metadata
@@ -110,15 +144,40 @@ export class RPC {
 
             return {
                 success: true,
-                data: result
+                data: result,
+                code: 200
             };
 
         } catch (error) {
-            console.error(error);
-            return {
-                success: false,
-                error: error instanceof Error ? error.message : String(error)
-            };
+            if (error instanceof RPCError) {
+                
+                const error_handler = this.error_handlers_registry.get(error.error_label);
+                if ( !error_handler ) {
+                    console.error(`unhandled exception for label "${error.error_label}"`);
+
+                    return {
+                        success: false,
+                        error: "Error 500: operation failed",
+                        code: 500
+                    };
+                }
+                const error_msg = error_handler( error.error_params );
+
+                return {
+                    success: false,
+                    error: error_msg,
+                    code: error.status_code
+                };
+
+            } else {
+                console.error(error);
+                
+                return {
+                    success: false,
+                    error: "Error 500: operation failed",
+                    code: 500
+                };
+            }
         }
 
     }
@@ -164,6 +223,9 @@ export function cookieParser(req: Request, _res: Response, next: NextFunction) {
 }
 
 
+
+
+
 export function createRPC( app:Express , path:string , validator:Validator ) : RPC {
     const rpc = new RPC();
     rpc.validator = validator;
@@ -189,10 +251,10 @@ export function createRPC( app:Express , path:string , validator:Validator ) : R
             }
 
             const result: RPCResponse = await rpc.handler(requestData, req, res);
-            res.json(result);
+            res.status(result.code).json(result);
 
         } catch (error) {
-            res.status(500).json({ error: `Internal server error ${error}` });
+            res.status(500).json({ error: `Internal server error 500` });
         }
 
     });
